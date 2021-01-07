@@ -1,27 +1,55 @@
 package com.example.demo.test;
 
-import lombok.SneakyThrows;
-import org.apache.poi.hssf.usermodel.HSSFSheet;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
-import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 
 @Component
 public class DocumentCreator {
-
     private static final Logger logger = LoggerFactory.getLogger(DocumentCreator.class);
-    private static final String EXCEL_NAME = "Result.xlsx";
 
+    public void generate(Header header, Collection<Collection<Object>> values) {
+        LocalDate now = LocalDate.now();
+        Workbook book = new XSSFWorkbook();
+        Sheet sheet = book.createSheet("result");
+
+        int row = 0;
+        Row headRow = sheet.createRow(row);
+        List<String> headerValues = header.getHeaderValues();
+        for (int i = 0; i < headerValues.size(); i++) {
+            String headerValue = headerValues.get(i);
+            headRow.createCell(i).setCellValue(headerValue);
+        }
+
+        for (Collection<Object> value : values) {
+            Row r = sheet.createRow(++row);
+            int cellIndex = 0;
+            for (Object v : value) {
+                if (v instanceof String) {
+                    r.createCell(cellIndex++).setCellValue((String) v);
+                } else if (v instanceof Double) {
+                    r.createCell(cellIndex++).setCellValue(((Double) v));
+                }
+            }
+        }
+        try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream("excel_" + now.toString() + ".xlsx"))) {
+            book.write(bos);
+            book.close();
+        } catch (IOException e) {
+            logger.error("Cannot create excel file", e);
+        }
+    }
+/*
     @SneakyThrows
     public void createDocument(int numberSheet) {
         Workbook book = new HSSFWorkbook();
@@ -52,12 +80,14 @@ public class DocumentCreator {
         form.setCellValue("Форма");
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 7, 13));
         sheet.autoSizeColumn(1);
+
         try {
             book.write(new FileOutputStream(EXCEL_NAME));
+            book.close();
         } catch (IOException ioException) {
             logger.error("Exception while writing to the file", ioException);
         }
-        book.close();
+
     }
 
     @SneakyThrows
@@ -97,5 +127,5 @@ public class DocumentCreator {
         c1.setCellValue(v13);
 
         workbook.close();
-    }
+    }*/
 }

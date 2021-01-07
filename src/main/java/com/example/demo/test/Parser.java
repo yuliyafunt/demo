@@ -1,51 +1,85 @@
 package com.example.demo.test;
 
 import lombok.SneakyThrows;
+import org.apache.commons.compress.utils.IOUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Node;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 import static com.example.demo.Constants.TEXT;
 import static com.example.demo.Constants.TITLE;
 
 @Component
 public class Parser {
-
     private static final Logger logger = LoggerFactory.getLogger(Parser.class);
 
-    @Autowired
-    private DocumentCreator documentCreator;
+    private final DocumentCreator documentCreator;
+
+    public Parser(DocumentCreator documentCreator) {
+        this.documentCreator = documentCreator;
+    }
 
     //    @Scheduled
     @SneakyThrows
     public void parse() {
         logger.info("Start parsing.");
         ChromeOptions opts = new ChromeOptions();
-        opts.setHeadless(true);
+//        opts.setHeadless(true);
         WebDriver driver = new ChromeDriver(opts);
+        Actions actions = new Actions(driver);
         driver.get("https://www.flashscore.ru/basketball/");
 
+        List<WebElement> headers = new WebDriverWait(driver, 20)
+                .until(ExpectedConditions.visibilityOfAllElementsLocatedBy(By.className("event__header")));
 
-//        WebElement liveTables = driver.findElement(By.id("live-table"));
-        WebDriverWait wait = new WebDriverWait(driver, 20);
-//        WebElement sport = wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("sportName")));
-//        WebElement sport = liveTables.findElement(By.className("sportName"));
-        List<WebElement> headers = wait.until(ExpectedConditions.visibilityOfAllElementsLocatedBy(By.className("event__header")));
+        Optional<String> mainWindow = driver.getWindowHandles().stream().findFirst();
+        if (!mainWindow.isPresent()) {
+            throw new IllegalStateException("Main window is not found");
+        }
+        List<WebElement> expanders = driver.findElements(By.className("event__expander"));
+        for (WebElement expander : expanders) {
+            String aClass = expander.getAttribute("class");
+            if (aClass.endsWith("expand")) {
+                expander.click();
+            }
+        }
+
         for (int i = 0; i < headers.size(); i++) {
+            try {
+                WebElement header = headers.get(i);
+                WebElement element = header.findElement(By.tagName("a"));
+                if (element.getText().equals("Таблица")) {
+                    element.click();
+                }
+            } catch (ElementClickInterceptedException e) {
+                new WebDriverWait(driver, 10)
+                        .pollingEvery(Duration.ofMillis(100))
+                        .until(ExpectedConditions.elementToBeClickable(By.id("onetrust-accept-btn-handler")));
+                WebElement acceptCookies = driver.findElement(By.id("onetrust-accept-btn-handler"));
+                acceptCookies.click();
+                i--;
+            }
+        }
+
+
+
+        /*for (int i = 0; i < headers.size(); i++) {
+
 
             WebElement link = headers.get(i).findElement(By.className("event__info"));
 
@@ -85,9 +119,7 @@ public class Parser {
 //                );
 //                driver.close();
             }
-        }
+        }*/
         logger.info("Parsing completed!");
     }
-
-
 }
